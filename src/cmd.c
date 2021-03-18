@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include "./cmd.h"
+#include "./http.h"
 
 char hex_char(char x)
 {
@@ -31,15 +32,6 @@ String_View url_encode(Region *memory, String_View sv)
     };
 }
 
-static size_t write_to_region(char *data, size_t size, size_t nmemb, Region *region)
-{
-    void *dest = region_alloc(region, size * nmemb);
-    if (dest == NULL) {
-        return 0;
-    }
-    memcpy(dest, data, size * nmemb);
-    return nmemb;
-}
 
 void cmd_ping(Irc *irc, Log *log, CURL *curl, Region *memory, String_View channel, String_View args)
 {
@@ -66,29 +58,13 @@ void cmd_wttr(Irc *irc, Log *log, CURL *curl, Region *memory, String_View channe
         return;
     }
 
-    size_t begin_size = memory->size;
-
-    // TODO: use asynchronous CURL
-    curl_easy_setopt(curl, CURLOPT_URL, wttr_url.data);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_region);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, memory);
-    CURLcode res = curl_easy_perform(curl);
-    if (res != CURLE_OK) {
-        log_error(log, "COMMAND: CURL GET query of "SV_Fmt" has failed failed: %s",
-                  SV_Arg(wttr_url),
-                  curl_easy_strerror(res));
-        return;
+    String_View wttr = {0};
+    if (curl_get_request(curl, log, memory, wttr_url.data, &wttr)) {
+        irc_privmsg(irc, channel, wttr);
+        log_info(log, "COMMAND: wttr handled successfully");
     }
 
-    assert(begin_size < memory->size);
-
-    String_View wttr = {
-        .count = memory->size - begin_size,
-        .data = memory->buffer + begin_size,
-    };
-
-    irc_privmsg(irc, channel, wttr);
-    log_info(log, "COMMAND: wttr handled successfully");
+    return;
 }
 
 Cmd_Run find_cmd_by_name(String_View name)

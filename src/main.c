@@ -207,6 +207,11 @@ int main(int argc, char **argv)
         log_info(&log, "Successfully allocated memory for commands");
     }
 
+    // Request Discord WebSocket end point
+    {
+        
+    }
+
     // Connect to IRC
     {
         if (!irc_connect_secure(&log, &irc, ctx, HOST, SECURE_PORT, true)) {
